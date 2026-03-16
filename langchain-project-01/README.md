@@ -10,16 +10,15 @@ A complete port of the Python LangChain crash course to Node.js, powered by **xA
 ## Project Structure
 
 ```
-langchain-node-grok/
+langchain-project-01/
 ├── src/
 │   ├── langchain.js    ← Core library (LLM → Grok, PromptTemplate, Chains, Memory)
 │   ├── restaurant.js   ← Restaurant name generator (SequentialChain)
-│   ├── demo.js         ← Full crash course walkthrough
 │   └── server.js       ← Express web server
 ├── public/
 │   └── index.html      ← Web UI
-├── .env.example
-└── package.json
+├── README.md
+├── package.json
 ```
 
 ## Setup
@@ -37,14 +36,10 @@ cp .env.example .env
 
 ```bash
 # Web UI
-npm start
-# → open http://localhost:3000
+npm run start
 
-# Restaurant generator CLI
+# Restaurant name generator
 npm run restaurant
-
-# Full crash course demo (all concepts)
-npm run demo
 ```
 
 ---
