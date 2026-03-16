@@ -1,0 +1,18 @@
+{
+  "name": "langchain-node-grok",
+  "version": "1.0.0",
+  "description": "LangChain crash course rebuilt in Node.js using xAI Grok API",
+  "main": "src/server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "restaurant": "node src/restaurant.js",
+    "demo": "node src/demo.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.6",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "openai": "^4.47.0"
+  }
+}

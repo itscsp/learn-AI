@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<body>
+  <div class="card">
+  
+    <div class="body">
+      <label for="cuisine">Select your cuisine</label>
+      <div class="select-wrap">
+        <select id="cuisine">
+          <option value="Indian">Indian</option>
+          <option value="Italian">Italian</option>
+          <option value="Mexican">Mexican</option>
+          <option value="Arabic">Arabic</option>
+          <option value="American">American</option>
+          <option value="Japanese">Japanese</option>
+          <option value="French">French</option>
+        </select>
+      </div>
+
+      <button id="generateBtn" onclick="generate()">
+        Generate Restaurant
+      </button>
+
+      <div class="error-msg" id="errorMsg"></div>
+
+      <div id="result">
+        <hr class="divider" />
+        <div class="restaurant-name" id="restaurantName"></div>
+        <div class="cuisine-tag" id="cuisineTag"></div>
+        <div class="menu-heading">Signature Menu Items</div>
+        <ul class="menu-list" id="menuList"></ul>
+      </div>
+    </div>
+
+    
+  </div>
+
+  <script>
+    async function generate() {
+      const btn = document.getElementById('generateBtn');
+      const cuisine = document.getElementById('cuisine').value;
+      const resultEl = document.getElementById('result');
+      const errorEl = document.getElementById('errorMsg');
+
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span> Generating...';
+      resultEl.classList.remove('visible');
+      errorEl.style.display = 'none';
+
+      try {
+        const res = await fetch('/api/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ cuisine }),
+        });
+        const data = await res.json();
+
+        if (!res.ok) throw new Error(data.error || 'Unknown error');
+
+        document.getElementById('restaurantName').textContent = data.restaurant_name;
+        document.getElementById('cuisineTag').textContent = `${cuisine} Cuisine`;
+
+        const list = document.getElementById('menuList');
+        list.innerHTML = '';
+        data.menu_items.forEach(item => {
+          const li = document.createElement('li');
+          li.textContent = item;
+          list.appendChild(li);
+        });
+
+        setTimeout(() => resultEl.classList.add('visible'), 50);
+      } catch (err) {
+        errorEl.textContent = '⚠ ' + err.message;
+        errorEl.style.display = 'block';
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = 'Generate Restaurant';
+      }
+    }
+  </script>
+</body>
+</html>
