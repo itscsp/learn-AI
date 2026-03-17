@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Chat Bot</title>
+    <style>
+        body{
+            max-width: 600px;
+            margin: auto;
+            text-align: center;
+            margin-bottom: 20%;
+        }
+    </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>AI Chat Bot</h1>
+    </div>
+    <div class="messages" id="messages">
+      <div class="message bot-message">Hello! I'm your AI assistant. How can I help you today?</div>
+    </div>
+    <div class="input-area">
+      <input 
+        type="text" 
+        id="userInput" 
+        placeholder="Type your message..." 
+        autocomplete="off"
+      >
+      <button id="sendBtn" onclick="sendMessage()">Send</button>
+    </div>
+  </div>
+
+  <script>
+    const sessionId = `session_${Date.now()}`;
+    const messagesDiv = document.getElementById('messages');
+    const userInput = document.getElementById('userInput');
+    const sendBtn = document.getElementById('sendBtn');
+
+    async function sendMessage() {
+      const message = userInput.value.trim();
+
+      if (!message) return;
+
+      // Disable input while sending
+      userInput.disabled = true;
+      sendBtn.disabled = true;
+
+      // Add user message
+      addMessage(message, 'user');
+      userInput.value = '';
+
+      // Add loading indicator
+      const loadingDiv = document.createElement('div');
+      loadingDiv.className = 'message bot-message loading';
+      loadingDiv.innerHTML = '<div class="loading-dot"></div><div class="loading-dot"></div><div class="loading-dot"></div>';
+      messagesDiv.appendChild(loadingDiv);
+      messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+      try {
+        // Call the streaming API
+        const response = await fetch(`/api/stream?sessionId=${encodeURIComponent(sessionId)}&question=${encodeURIComponent(message)}`);
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        // Remove loading indicator
+        loadingDiv.remove();
+
+        // Create bot message div
+        const botMessageDiv = document.createElement('div');
+        botMessageDiv.className = 'message bot-message';
+        messagesDiv.appendChild(botMessageDiv);
+
+        // Create hr element
+        const hr = document.createElement('hr');
+        messagesDiv.appendChild(hr);
+
+        // Read the stream
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let botResponse = '';
+        let buffer = '';
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value);
+          const lines = buffer.split('\n');
+          
+          // Keep the last incomplete line in the buffer
+          buffer = lines.pop() || '';
+
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              try {
+                const jsonStr = line.slice(6).trim();
+                if (!jsonStr) continue;
+                
+                const data = JSON.parse(jsonStr);
+
+                if (data.error) {
+                  botResponse += `❌ Error: ${data.error}`;
+                } else if (data.chunk && data.chunk !== '[DONE]') {
+                  botResponse += data.chunk;
+                }
+
+                botMessageDiv.innerHTML = formatMarkdown(botResponse);
+                messagesDiv.scrollTop = messagesDiv.scrollHeight;
+              } catch (e) {
+                console.error('Parse error:', e, 'line:', line);
+              }
+            }
+          }
+        }
+
+      } catch (error) {
+        loadingDiv.remove();
+        addMessage(`❌ Error: ${error.message}`, 'bot');
+      } finally {
+        // Enable input
+        userInput.disabled = false;
+        sendBtn.disabled = false;
+        userInput.focus();
+      }
+    }
+
+    function addMessage(text, sender) {
+      const messageDiv = document.createElement('div');
+      messageDiv.className = `message ${sender}-message`;
+      if (sender === 'bot') {
+        messageDiv.innerHTML = formatMarkdown(text);
+      } else {
+        messageDiv.textContent = text; // User messages stay as plain text for security
+      }
+      messagesDiv.appendChild(messageDiv);
+      
+      // Add horizontal line after message
+      const hr = document.createElement('hr');
+      messagesDiv.appendChild(hr);
+      
+      messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    }
+
+    function formatMarkdown(text) {
+      // Escape HTML first to prevent XSS
+      text = text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+      
+      // Convert markdown to HTML
+      // Headers: # H1, ## H2, ### H3
+      text = text.replace(/^### (.*?)$/gm, '<h3>$1</h3>');
+      text = text.replace(/^## (.*?)$/gm, '<h2>$1</h2>');
+      text = text.replace(/^# (.*?)$/gm, '<h1>$1</h1>');
+      
+      // Bold: **text** or __text__
+      text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+      text = text.replace(/__(.+?)__/g, '<strong>$1</strong>');
+      
+      // Italic: *text* or _text_
+      text = text.replace(/\*(.*?)\*/g, '<em>$1</em>');
+      text = text.replace(/_(.+?)_/g, '<em>$1</em>');
+      
+      // Code: `code`
+      text = text.replace(/`([^`]+)`/g, '<code style="background: #f0f0f0; padding: 2px 6px; border-radius: 3px; font-family: monospace;">$1</code>');
+      
+      // Unordered lists: - item or * item
+      text = text.replace(/^\s*[-*+]\s+(.+)$/gm, '<li>$1</li>');
+      text = text.replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>');
+      
+      // Numbered lists: 1. item
+      text = text.replace(/^\s*\d+\.\s+(.+)$/gm, '<li>$1</li>');
+      
+      // Line breaks
+      text = text.replace(/\n\n/g, '</p><p>');
+      text = text.replace(/\n/g, '<br>');
+      
+      // Wrap in paragraphs
+      text = '<p>' + text + '</p>';
+      
+      return text;
+    }
+
+    // Allow Enter key to send message
+    userInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter' && !userInput.disabled) {
+        sendMessage();
+      }
+    });
+
+    // Focus input on load
+    userInput.focus();
+  </script>
+</body>
+</html>
